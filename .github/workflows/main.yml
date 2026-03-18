@@ -1,6 +1,15 @@
 name: Minecraft_No_Error_2026
+
 on:
   workflow_dispatch:
+
+# 1. إعطاء الصلاحية للبوت لكي يستطيع عمل git push
+permissions:
+  contents: write
+
+# 2. حل تحذير Node.js 20 المزعج
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   run-server:
@@ -24,32 +33,31 @@ jobs:
       - name: Run Server & Ngrok
         env:
           NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
         run: |
-          # تحميل Ngrok نسخة Linux المباشرة (لا تحتاج تثبيت)
+          # تحميل Ngrok
           curl -L https://bin.equinox.io/c/bPR9B2hS3AD/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
           tar -xzf ngrok.tgz
           chmod +x ngrok
           ./ngrok config add-authtoken $NGROK_TOKEN
           ./ngrok tcp 25565 &
 
-          # تحميل السيرفر والمودات
+          # تحميل السيرفر
           curl -L https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -o server.jar
           echo "eula=true" > eula.txt
           
-          # إعدادات الكراك والوصف
+          # إعدادات السيرفر
           echo "online-mode=false" > server.properties
           echo "motd=\u00A7c\u00A7lhi in my server" >> server.properties
 
           mkdir -p plugins
-          # تحميل المودات بروابط مباشرة سريعة
+          # تحميل المودات (تم تصحيح رابط ViaVersion)
           curl -L https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -o plugins/EssentialsX.jar
           curl -L https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -o plugins/Lifesteal.jar
-          curl -L https://github.com/ViaVersion/ViaVersion/releases/latest/download/ViaVersion-4.10.0.jar -o plugins/ViaVersion.jar
+          curl -L https://github.com/ViaVersion/ViaVersion/releases/download/4.10.0/ViaVersion-4.10.0.jar -o plugins/ViaVersion.jar
 
-          # تشغيل السيرفر بأقصى طاقة
+          # تشغيل السيرفر (تم تقليل الرام إلى 6G لتجنب انهيار السيرفر)
           echo "🚀 السيرفر يقلع الآن... انتظر الرابط"
-          java -Xmx7G -Xms7G -jar server.jar nogui
+          java -Xmx6G -Xms6G -jar server.jar nogui
 
       - name: Save World
         if: always()
@@ -58,5 +66,6 @@ jobs:
           git config --global user.name "MC-Bot"
           git config --global user.email "bot@github.com"
           git add world_backup.zip
-          git commit -m "Save" || echo "No change"
+          git commit -m "Save World Backup" || echo "No change"
+          git push
           git push

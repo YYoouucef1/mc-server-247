@@ -1,0 +1,62 @@
+name: Ultimate_Minecraft_247_Professional
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *' # تشغيل آلي كل 6 ساعات
+
+jobs:
+  run-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Restore Backup (تحميل العالم المحفوظ)
+        run: |
+          if [ -f "world_backup.zip" ]; then
+            unzip -o world_backup.zip
+          fi
+
+      - name: Start Server
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        run: |
+          # تثبيت Ngrok
+          wget -q https://bin.equinox.io/c/bPR9B2hS3AD/ngrok-v3-stable-linux-amd64.tgz
+          tar -xvzf ngrok-v3-stable-linux-amd64.tgz
+          ./ngrok config add-authtoken $NGROK_TOKEN
+          ./ngrok tcp 25565 &
+
+          # تحميل السيرفر والمودات
+          wget https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -O server.jar
+          echo "eula=true" > eula.txt
+          
+          # إعدادات الكراك (Online Mode = False) والوصف الملون
+          echo "online-mode=false" > server.properties
+          echo "motd=\u00A7c\u00A7lhi in my server" >> server.properties
+          echo "view-distance=6" >> server.properties
+
+          mkdir -p plugins
+          wget https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -P plugins/
+          wget https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -P plugins/
+          wget https://github.com/ViaVersion/ViaVersion/releases/latest/download/ViaVersion-4.10.0.jar -P plugins/
+          wget https://github.com/ViaVersion/ViaBackwards/releases/latest/download/ViaBackwards-4.10.0.jar -P plugins/
+          wget https://github.com/NEZNAMY/TAB/releases/download/4.1.4/TAB.v4.1.4.jar -P plugins/
+
+          # تشغيل السيرفر لمدة 5 ساعات و 45 دقيقة ثم الحفظ التلقائي
+          timeout 345m java -Xmx7G -Xms7G -XX:+UseG1GC -jar server.jar nogui || echo "Saving backup..."
+
+      - name: Auto-Save World (حفظ العالم والنذر والإند)
+        run: |
+          zip -r world_backup.zip world world_nether world_the_end plugins server.properties
+          git config --global user.name "MC-Server-Bot"
+          git config --global user.email "bot@github.com"
+          git add world_backup.zip
+          git commit -m "Backup: World & Plugins"
+          git push

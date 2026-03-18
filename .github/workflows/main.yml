@@ -1,8 +1,6 @@
-name: Minecraft_Final_2026
+name: Minecraft_No_Error_2026
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 */6 * * *'
 
 jobs:
   run-server:
@@ -20,52 +18,45 @@ jobs:
       - name: Restore World
         run: |
           if [ -f "world_backup.zip" ]; then
-            unzip -o world_backup.zip || echo "No backup found"
+            unzip -o world_backup.zip || echo "No backup"
           fi
 
-      - name: Setup Ngrok & Server
+      - name: Run Server & Ngrok
         env:
           NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+          ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
         run: |
-          # 1. تثبيت Ngrok عبر المستودع الرسمي (أضمن طريقة في 2026)
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install ngrok -y
-          
-          # 2. تفعيل التوكن وتشغيل النفق
-          ngrok config add-authtoken $NGROK_TOKEN
-          ngrok tcp 25565 --log=stdout > ngrok.log &
+          # تحميل Ngrok نسخة Linux المباشرة (لا تحتاج تثبيت)
+          curl -L https://bin.equinox.io/c/bPR9B2hS3AD/ngrok-v3-stable-linux-amd64.tgz -o ngrok.tgz
+          tar -xzf ngrok.tgz
+          chmod +x ngrok
+          ./ngrok config add-authtoken $NGROK_TOKEN
+          ./ngrok tcp 25565 &
 
-          # 3. تحميل السيرفر (إصدار Purpur المستقر)
-          wget -q https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -O server.jar
+          # تحميل السيرفر والمودات
+          curl -L https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -o server.jar
           echo "eula=true" > eula.txt
           
           # إعدادات الكراك والوصف
           echo "online-mode=false" > server.properties
           echo "motd=\u00A7c\u00A7lhi in my server" >> server.properties
-          echo "view-distance=6" >> server.properties
 
-          # تحميل المودات
           mkdir -p plugins
-          wget -q https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -P plugins/
-          wget -q https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -P plugins/
-          wget -q https://github.com/ViaVersion/ViaVersion/releases/latest/download/ViaVersion-4.10.0.jar -P plugins/
-          wget -q https://github.com/ViaVersion/ViaBackwards/releases/latest/download/ViaBackwards-4.10.0.jar -P plugins/
-          wget -q https://github.com/NEZNAMY/TAB/releases/download/4.1.4/TAB.v4.1.4.jar -P plugins/
+          # تحميل المودات بروابط مباشرة سريعة
+          curl -L https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -o plugins/EssentialsX.jar
+          curl -L https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -o plugins/Lifesteal.jar
+          curl -L https://github.com/ViaVersion/ViaVersion/releases/latest/download/ViaVersion-4.10.0.jar -o plugins/ViaVersion.jar
 
-          # تشغيل السيرفر
-          echo "🚀 السيرفر يقلع الآن..."
-          java -Xmx7G -Xms7G -XX:+UseG1GC -jar server.jar nogui
+          # تشغيل السيرفر بأقصى طاقة
+          echo "🚀 السيرفر يقلع الآن... انتظر الرابط"
+          java -Xmx7G -Xms7G -jar server.jar nogui
 
-      - name: Auto-Save
-        if: always() # لضمان الحفظ حتى لو فشل السيرفر
+      - name: Save World
+        if: always()
         run: |
           zip -r world_backup.zip world world_nether world_the_end plugins server.properties
           git config --global user.name "MC-Bot"
           git config --global user.email "bot@github.com"
           git add world_backup.zip
-          git commit -m "Auto-Save" || echo "No changes"
-          git push
-          git commit -m "Auto-Save"
+          git commit -m "Save" || echo "No change"
           git push

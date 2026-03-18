@@ -1,4 +1,4 @@
-name: Ultimate_MC_Professional_Fixed
+name: Minecraft_Final_Fix
 on:
   workflow_dispatch:
   schedule:
@@ -17,50 +17,48 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Restore World Backup
+      - name: Restore World
         run: |
           if [ -f "world_backup.zip" ]; then
             unzip -o world_backup.zip
-            echo "✅ تم استعادة العالم المحفوظ!"
           fi
 
-      - name: Install Ngrok & Run Server
+      - name: Setup Ngrok & Server
         env:
           NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
         run: |
-          # 1. تثبيت Ngrok بالطريقة الرسمية (المستودع المباشر)
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-          sudo apt update && sudo apt install ngrok -y
-          ngrok config add-authtoken $NGROK_TOKEN
-          ngrok tcp 25565 &
+          # تحميل Ngrok بطريقة يدوية سريعة ومضمونة
+          wget -q https://bin.equinox.io/c/bPR9B2hS3AD/ngrok-v3-stable-linux-amd64.tgz
+          tar -xzf ngrok-v3-stable-linux-amd64.tgz
+          chmod +x ngrok
+          ./ngrok config add-authtoken $NGROK_TOKEN
+          ./ngrok tcp 25565 &
 
-          # 2. تحميل السيرفر والمودات الأساسية
-          wget https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -O server.jar
+          # تحميل السيرفر والمودات
+          wget -q https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -O server.jar
           echo "eula=true" > eula.txt
           
-          # إعدادات الكراك والوصف الملون
+          # إعدادات الكراك والوصف واللاق
           echo "online-mode=false" > server.properties
           echo "motd=\u00A7c\u00A7lhi in my server" >> server.properties
           echo "view-distance=6" >> server.properties
 
           mkdir -p plugins
-          wget https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -P plugins/
-          wget https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -P plugins/
-          wget https://github.com/ViaVersion/ViaVersion/releases/latest/download/ViaVersion-4.10.0.jar -P plugins/
-          wget https://github.com/ViaVersion/ViaBackwards/releases/latest/download/ViaBackwards-4.10.0.jar -P plugins/
-          wget https://github.com/NEZNAMY/TAB/releases/download/4.1.4/TAB.v4.1.4.jar -P plugins/
+          wget -q https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -P plugins/
+          wget -q https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -P plugins/
+          wget -q https://github.com/ViaVersion/ViaVersion/releases/latest/download/ViaVersion-4.10.0.jar -P plugins/
+          wget -q https://github.com/ViaVersion/ViaBackwards/releases/latest/download/ViaBackwards-4.10.0.jar -P plugins/
+          wget -q https://github.com/NEZNAMY/TAB/releases/download/4.1.4/TAB.v4.1.4.jar -P plugins/
 
-          # 3. تشغيل السيرفر لمدة 5 ساعات و 45 دقيقة ثم الحفظ
-          echo "🚀 السيرفر يبدأ الآن..."
-          timeout 345m java -Xmx7G -Xms7G -XX:+UseG1GC -jar server.jar nogui || echo "💾 يتم حفظ العالم الآن..."
+          # تشغيل السيرفر
+          echo "🚀 السيرفر يقلع الآن... انتظر ظهور الرابط"
+          timeout 345m java -Xmx7G -Xms7G -XX:+UseG1GC -jar server.jar nogui || echo "Saving Backup..."
 
-      - name: Save World Backup
+      - name: Auto-Save
         run: |
           zip -r world_backup.zip world world_nether world_the_end plugins server.properties
-          git config --global user.name "MC-Server-Bot"
+          git config --global user.name "MC-Bot"
           git config --global user.email "bot@github.com"
           git add world_backup.zip
-          git commit -m "حفظ آلي للعالم والقلوب"
-          git push
+          git commit -m "Auto-Save"
           git push

@@ -1,4 +1,4 @@
-name: Minecraft_2026_Final
+name: Minecraft_Final_2026
 on:
   workflow_dispatch:
   schedule:
@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 # تحديث لنسخة v4
+        uses: actions/checkout@v4
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4 # تحديث لنسخة v4
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -20,7 +20,7 @@ jobs:
       - name: Restore World
         run: |
           if [ -f "world_backup.zip" ]; then
-            unzip -o world_backup.zip
+            unzip -o world_backup.zip || echo "No backup found"
           fi
 
       - name: Setup Ngrok & Server
@@ -28,14 +28,16 @@ jobs:
           NGROK_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         run: |
-          # تحميل Ngrok برابط بديل ومباشر لضمان عدم حدوث Error 8
-          curl -L -o ngrok.tgz https://bin.equinox.io/c/bPR9B2hS3AD/ngrok-v3-stable-linux-amd64.tgz
-          tar -xzf ngrok.tgz
-          chmod +x ngrok
-          ./ngrok config add-authtoken $NGROK_TOKEN
-          ./ngrok tcp 25565 &
+          # 1. تثبيت Ngrok عبر المستودع الرسمي (أضمن طريقة في 2026)
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+          sudo apt update && sudo apt install ngrok -y
+          
+          # 2. تفعيل التوكن وتشغيل النفق
+          ngrok config add-authtoken $NGROK_TOKEN
+          ngrok tcp 25565 --log=stdout > ngrok.log &
 
-          # تحميل السيرفر والمودات (بدون لاق)
+          # 3. تحميل السيرفر (إصدار Purpur المستقر)
           wget -q https://api.purpurmc.org/v2/purpur/1.20.1/latest/download -O server.jar
           echo "eula=true" > eula.txt
           
@@ -44,6 +46,7 @@ jobs:
           echo "motd=\u00A7c\u00A7lhi in my server" >> server.properties
           echo "view-distance=6" >> server.properties
 
+          # تحميل المودات
           mkdir -p plugins
           wget -q https://github.com/EssentialsX/Essentials/releases/download/2.20.1/EssentialsX-2.20.1.jar -P plugins/
           wget -q https://github.com/LS-Core/Lifesteal-Core/releases/latest/download/Lifesteal-Core.jar -P plugins/
@@ -52,16 +55,17 @@ jobs:
           wget -q https://github.com/NEZNAMY/TAB/releases/download/4.1.4/TAB.v4.1.4.jar -P plugins/
 
           # تشغيل السيرفر
-          echo "🚀 السيرفر يقلع الآن بنظام 2026..."
-          timeout 345m java -Xmx7G -Xms7G -XX:+UseG1GC -jar server.jar nogui || echo "Saving Backup..."
+          echo "🚀 السيرفر يقلع الآن..."
+          java -Xmx7G -Xms7G -XX:+UseG1GC -jar server.jar nogui
 
       - name: Auto-Save
+        if: always() # لضمان الحفظ حتى لو فشل السيرفر
         run: |
           zip -r world_backup.zip world world_nether world_the_end plugins server.properties
           git config --global user.name "MC-Bot"
           git config --global user.email "bot@github.com"
           git add world_backup.zip
-          git commit -m "Auto-Save" || echo "No changes to commit"
+          git commit -m "Auto-Save" || echo "No changes"
           git push
           git commit -m "Auto-Save"
           git push
